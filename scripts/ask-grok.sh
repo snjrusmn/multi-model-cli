@@ -13,6 +13,7 @@
 #     Можно несколько. Текст подмешивается в начало промпта, папка скилла
 #     указывается - модель дочитает справочные файлы сама.
 # -d  рабочий каталог. По умолчанию - папка первого материала, иначе временная.
+# -j  файл JSON-схемы: ответ придёт строго по ней. Годится schemas/review-schema.json.
 # -w  разрешить менять файлы. Правки возможны ТОЛЬКО внутри рабочего каталога.
 # -t  таймаут в секундах, по умолчанию 600.
 #
@@ -40,13 +41,14 @@ export PATH="$HOME/.grok/bin:$HOME/.local/bin:$PATH"
 EFFORT=""
 MODEL=""
 TIMEOUT=600
+SCHEMA=""
 WORKDIR=""
 WORKDIR_EXPLICIT=0
 WRITE=0
 MATERIALS=()
 SKILLS=()
 
-while getopts "e:m:t:d:f:s:wh" opt; do
+while getopts "e:m:t:d:f:s:j:wh" opt; do
   case "$opt" in
     e) EFFORT="$OPTARG" ;;
     m) MODEL="$OPTARG" ;;
@@ -54,6 +56,7 @@ while getopts "e:m:t:d:f:s:wh" opt; do
     d) WORKDIR="$OPTARG"; WORKDIR_EXPLICIT=1 ;;
     f) MATERIALS[${#MATERIALS[@]}]="$OPTARG" ;;
     s) SKILLS[${#SKILLS[@]}]="$OPTARG" ;;
+    j) SCHEMA="$OPTARG" ;;
     w) WRITE=1 ;;
     h) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "ask-grok: неизвестный флаг" >&2; exit 1 ;;
@@ -67,6 +70,11 @@ if [ -z "$PROMPT" ] || [ "$PROMPT" = "-" ]; then
 fi
 if [ -z "${PROMPT// }" ]; then
   echo "ask-grok: пустой промпт" >&2
+  exit 1
+fi
+
+if [ -n "$SCHEMA" ] && [ ! -f "$SCHEMA" ]; then
+  echo "ask-grok: файл схемы не найден: $SCHEMA" >&2
   exit 1
 fi
 
@@ -172,6 +180,7 @@ else
     --disallowed-tools 'search_replace,write'
 fi
 [ -n "$MODEL" ] && set -- "$@" -m "$MODEL"
+[ -n "$SCHEMA" ] && set -- "$@" --json-schema "$(cat "$SCHEMA")"
 
 cd "$WORKDIR" || exit 1
 

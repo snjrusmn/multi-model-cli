@@ -10,7 +10,7 @@
 ## Состав
 
 ```
-scripts/     три обёртки + Seatbelt-профиль для Antigravity
+scripts/     три обёртки, диагностика, Seatbelt-профиль, схема и промпт для ревью
 agents/      определения субагентов Claude Code
 skills/      delegate (делегирование работы), second-opinion (второе мнение)
 docs/        pitfalls.md - собранные грабли
@@ -39,10 +39,17 @@ cd multi-model-cli
 Ставит симлинки в `~/.claude/{scripts,agents,skills}`. Существующие файлы не трогает,
 выводит список пропущенных. Замена - `./install.sh --force`, старое уходит в `.bak`.
 
+Проверка готовности:
+
+```bash
+~/.claude/scripts/doctor.sh          # CLI, авторизация, границы песочницы
+~/.claude/scripts/doctor.sh --live   # плюс по одному живому вызову на каждую модель
+```
+
 ## Использование
 
 ```bash
-~/.claude/scripts/ask-codex.sh  [-e УСИЛИЕ] [-m МОДЕЛЬ] [-t СЕК] [-d DIR] [-f ПУТЬ]... [-s СКИЛЛ]... [-w] "промпт"
+~/.claude/scripts/ask-codex.sh  [-e УСИЛИЕ] [-m МОДЕЛЬ] [-t СЕК] [-d DIR] [-f ПУТЬ]... [-s СКИЛЛ]... [-j СХЕМА] [-w] "промпт"
 ~/.claude/scripts/ask-grok.sh   ...
 ~/.claude/scripts/ask-gemini.sh ...
 ```
@@ -55,6 +62,7 @@ cd multi-model-cli
 | `-w` | разрешить запись, требует явного `-d` | выключено |
 | `-e` | усилие рассуждения | настройка CLI |
 | `-m` | модель | Codex `gpt-5.6-terra`, Grok `grok-4.6`, Antigravity `gemini-3.7-flash-high` |
+| `-j` | файл JSON-схемы, ответ приходит строго по ней | нет |
 | `-t` | таймаут, секунды | 600 |
 
 Промпт передаётся аргументом или через stdin (`-`). Коды возврата: `0` ответ получен,
@@ -72,7 +80,16 @@ ask-grok.sh -w -d ~/Documents/проект/src -e high "Перепиши мод�
 
 # свой скилл как правила работы
 ask-gemini.sh -s writing-style "Перепиши текст: ..."
+
+# ревью со структурированным ответом
+ask-codex.sh -f src/auth.py -j scripts/review-schema.json \
+  "$(cat scripts/adversarial-review.md)"
 ```
+
+Со схемой все три обёртки возвращают голый объект по ней. Схема `review-schema.json`
+задаёт вердикт `approve` / `needs-attention`, находки с файлом, диапазоном строк,
+серьёзностью, уверенностью и рекомендацией. Это делает претензию модели проверяемой:
+есть координаты, по которым можно пойти и посмотреть.
 
 ## Границы доступа
 
@@ -120,6 +137,29 @@ export ASK_SECRETS_FILE="$HOME/путь/к/файлу"
 
 [docs/pitfalls.md](docs/pitfalls.md): зависания headless-режимов, ложные коды успеха,
 побеги из allow-default песочницы, пределы моделей, не указанные в документации.
+
+## Похожие проекты
+
+| Проект | Кто | Что делает |
+|---|---|---|
+| [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) | OpenAI, официальный | плагин Claude Code: слэш-команды ревью и делегирования, перенос сессии, субагент |
+| [xai-org/grok-build-plugin-cc](https://github.com/xai-org/grok-build-plugin-cc) | xAI, официальный | то же для Grok Build, по умолчанию режим чтения |
+| [yuting0624/antigravity-for-claude-code](https://github.com/yuting0624/antigravity-for-claude-code) | сообщество | плагин для Antigravity, маршрутизация моделей и учёт расхода |
+| [anthropic-experimental/sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) | Anthropic | песочница с сетевым allowlist, macOS и Linux |
+
+Плагины удобнее по части UX: слэш-команды, перенос сессии, управление фоновыми задачами.
+Их поддерживают сами вендоры.
+
+Чем отличается этот репозиторий:
+
+- единый интерфейс на три вендора вместо трёх разных наборов команд;
+- Seatbelt-профиль для Antigravity, у которого своей файловой границы нет. Community-плагин
+  работает через `--yolo` и прямо пишет, что режим записи не в песочнице, предлагая
+  страховаться ветками git;
+- передача скиллов Claude Code внешней модели флагом `-s`.
+
+Что заимствовано: схема структурированного вывода ревью и промпт состязательного ревью
+из плагина OpenAI (Apache-2.0), диагностика окружения из плагина Antigravity.
 
 ## Лицензия
 

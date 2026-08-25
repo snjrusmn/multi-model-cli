@@ -50,10 +50,11 @@ link() {
 [ "$DRY" -eq 1 ] && echo "= пробный прогон, ничего не меняется =" && echo
 
 echo "Обёртки:"
-for f in scripts/ask-codex.sh scripts/ask-grok.sh scripts/ask-gemini.sh scripts/agy-sandbox.sb; do
+for f in scripts/ask-codex.sh scripts/ask-grok.sh scripts/ask-gemini.sh scripts/doctor.sh \
+         scripts/agy-sandbox.sb scripts/review-schema.json scripts/adversarial-review.md; do
   link "$f"
 done
-[ "$DRY" -eq 1 ] || chmod +x "$SRC"/scripts/ask-*.sh
+[ "$DRY" -eq 1 ] || chmod +x "$SRC"/scripts/ask-*.sh "$SRC"/scripts/doctor.sh
 
 echo "Субагенты:"
 for f in agents/codex.md agents/grok.md agents/gemini.md; do link "$f"; done
@@ -64,6 +65,6 @@ for f in skills/delegate skills/second-opinion; do link "$f"; done
 echo
 echo "Готово. Дальше:"
 echo "  1. Убедись, что нужные CLI установлены и авторизованы: codex / grok / agy"
-echo "  2. Проверь вызов:  ~/.claude/scripts/ask-codex.sh -e low \"ответь одним словом: работает\""
+echo "  2. Проверь готовность:  ~/.claude/scripts/doctor.sh"
 echo "  3. Хочешь закрыть свой файл с доступами от чтения - задай переменную:"
 echo "     export ASK_SECRETS_FILE=\"\$HOME/путь/к/файлу\""

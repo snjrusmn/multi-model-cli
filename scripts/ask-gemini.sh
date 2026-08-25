@@ -15,6 +15,7 @@
 #     Можно несколько. Текст подмешивается в начало промпта, а папка скилла
 #     открывается через --add-dir - модель дочитает справочные файлы сама.
 # -d  рабочий каталог. По умолчанию - папка первого материала, иначе временная.
+# -j  файл JSON-схемы: ответ придёт строго по ней. Годится schemas/review-schema.json.
 # -w  разрешить менять файлы. Правки возможны ТОЛЬКО внутри рабочего каталога.
 # -t  таймаут в секундах, по умолчанию 600.
 #
@@ -50,13 +51,14 @@ EFFORT=""
 # отдельных reasoning-бенчмарках - под них переключай: -m gemini-3.1-pro-high.
 MODEL="gemini-3.7-flash-high"
 TIMEOUT=600
+SCHEMA=""
 WORKDIR=""
 WORKDIR_EXPLICIT=0
 WRITE=0
 MATERIALS=()
 SKILLS=()
 
-while getopts "e:m:t:d:f:s:wh" opt; do
+while getopts "e:m:t:d:f:s:j:wh" opt; do
   case "$opt" in
     e) EFFORT="$OPTARG" ;;
     m) MODEL="$OPTARG" ;;
@@ -64,6 +66,7 @@ while getopts "e:m:t:d:f:s:wh" opt; do
     d) WORKDIR="$OPTARG"; WORKDIR_EXPLICIT=1 ;;
     f) MATERIALS[${#MATERIALS[@]}]="$OPTARG" ;;
     s) SKILLS[${#SKILLS[@]}]="$OPTARG" ;;
+    j) SCHEMA="$OPTARG" ;;
     w) WRITE=1 ;;
     h) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "ask-gemini: неизвестный флаг" >&2; exit 1 ;;
@@ -77,6 +80,11 @@ if [ -z "$PROMPT" ] || [ "$PROMPT" = "-" ]; then
 fi
 if [ -z "${PROMPT// }" ]; then
   echo "ask-gemini: пустой промпт" >&2
+  exit 1
+fi
+
+if [ -n "$SCHEMA" ] && [ ! -f "$SCHEMA" ]; then
+  echo "ask-gemini: файл схемы не найден: $SCHEMA" >&2
   exit 1
 fi
 
@@ -221,6 +229,8 @@ fi
 # каталог: любой вызов шелла отклонялся, а отклонённый инструмент обрывал весь ответ.
 set -- "$@" --dangerously-skip-permissions
 [ -n "$MODEL" ] && set -- "$@" --model "$MODEL"
+# agy требует json-формат вместе со схемой, иначе отказывается запускаться
+[ -n "$SCHEMA" ] && set -- "$@" --json-schema "$SCHEMA" --output-format json
 
 cd "$WORKDIR" || exit 1
 
@@ -243,4 +253,12 @@ if [ ! -s "$OUT" ]; then
   exit 1
 fi
 
-cat "$OUT"
+# agy заворачивает результат схемы в служебный конверт. Разворачиваем, чтобы вывод
+# со схемой выглядел одинаково у всех трёх обёрток: голый объект по схеме.
+if [ -n "$SCHEMA" ]; then
+  python3 -c 'import json,sys
+d=json.load(sys.stdin)
+print(json.dumps(d.get("structured_output", d), ensure_ascii=False, indent=2))' < "$OUT" 2>/dev/null || cat "$OUT"
+else
+  cat "$OUT"
+fi

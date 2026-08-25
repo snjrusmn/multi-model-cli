@@ -1,0 +1,18 @@
+multi-model-cli
+Copyright (c) 2026 Sanjar Usman
+
+Этот продукт содержит материалы, производные от следующих проектов:
+
+1. codex-plugin-cc (https://github.com/openai/codex-plugin-cc)
+   Copyright OpenAI, лицензия Apache License 2.0.
+   Заимствовано: структура промпта состязательного ревью и форма схемы
+   структурированного вывода ревью.
+   Изменения: промпт переведён на русский и переработан под собственную схему;
+   схема переписана заново по той же форме полей.
+   Файлы: scripts/adversarial-review.md, scripts/review-schema.json
+
+2. antigravity-for-claude-code (https://github.com/yuting0624/antigravity-for-claude-code)
+   Лицензия MIT.
+   Заимствована идея команды диагностики окружения. Реализация написана
+   самостоятельно на bash.
+   Файл: scripts/doctor.sh
