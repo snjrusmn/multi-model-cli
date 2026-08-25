@@ -1,0 +1,63 @@
+;; Seatbelt-профиль для Antigravity CLI (agy).
+;;
+;; Зачем: у agy, в отличие от Grok и Codex, нет своей файловой границы. Флаг --add-dir —
+;; это подсказка контекста, а его собственный --sandbox ограничивает только шелл; более
+;; того, --dangerously-skip-permissions авто-одобряет запрос bypassSandbox и отключает
+;; его штатную песочницу целиком. Значит эта обёртка — ЕДИНСТВЕННАЯ граница, страховки
+;; под ней нет. Отсюда правило: ничего не разрешать «на всякий случай».
+;;
+;; Что делает: читать можно почти везде (иначе не разобрать материалы проекта), писать —
+;; только в рабочий каталог, временные папки и служебные каталоги самого agy. Отдельно
+;; закрыты от чтения секреты и запрещено монтирование.
+;;
+;; Параметры (-D): WORKDIR, AGYSTATE, CACHE, LAUNCHAGENTS, LAUNCHDAEMONS,
+;; SSHDIR, AWSDIR, GPGDIR, CONFIGDIR, CODEXDIR, GROKDIR, SECRETSFILE.
+;;
+;; Грабли, уже собранные (не наступать заново):
+;; - /private/tmp НЕ разрешать: там scratchpad сессии, и с ним «режим чтения» перестаёт
+;;   быть режимом чтения. Временные файлы macOS живут в /private/var/folders.
+;; - ~/Library НЕ разрешать: туда входит ~/Library/LaunchAgents, а это устойчивое
+;;   выполнение кода вне песочницы при следующем логине. Проверено: agy в ~/Library
+;;   не пишет вовсе, разрешение было лишним.
+;; - Токены соседних CLI (~/.codex/auth.json, ~/.grok/auth.json) закрыты на чтение:
+;;   сеть у процесса открыта, файловая граница от утечки не спасает.
+;; - Пути в deny — только абсолютные. Глоб молча привязывается к текущему каталогу и
+;;   снаружи не срабатывает, причём бесшумно.
+;; - Вложенный sandbox-exec запрещён ядром (forbidden-sandbox-reinit).
+;;
+;; Отладка — по реальным отказам, а не наугад:
+;;   log stream --style compact --predicate 'eventMessage CONTAINS "Sandbox:" AND eventMessage CONTAINS "deny"'
+
+(version 1)
+(allow default)
+
+;; Монтирование: описан рабочий побег из allow-default профиля через смонтированный
+;; devfs, где не хранится тег происхождения, — оттуда запускается свой бинарник.
+(deny file-mount)
+(deny file-write-mount)
+(deny file-write-unmount)
+
+;; Запись — только в рабочий каталог и служебные папки agy.
+(deny file-write*)
+(allow file-write*
+  (subpath "/private/var")
+  (subpath "/dev")
+  (subpath (param "WORKDIR"))
+  (subpath (param "AGYSTATE"))
+  (subpath (param "CACHE")))
+
+;; Страховка на случай, если сюда когда-нибудь вернут широкий грант: автозапуск закрыт
+;; безусловно. В Seatbelt побеждает последнее совпавшее правило, поэтому deny идёт после.
+(deny file-write*
+  (subpath (param "LAUNCHAGENTS"))
+  (subpath (param "LAUNCHDAEMONS")))
+
+;; Секреты закрыты и от чтения.
+(deny file-read*
+  (subpath (param "SSHDIR"))
+  (subpath (param "AWSDIR"))
+  (subpath (param "GPGDIR"))
+  (subpath (param "CONFIGDIR"))
+  (subpath (param "CODEXDIR"))
+  (subpath (param "GROKDIR"))
+  (literal (param "SECRETSFILE")))
