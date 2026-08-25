@@ -232,10 +232,17 @@ set -- "$@" --dangerously-skip-permissions
 # agy требует json-формат вместе со схемой, иначе отказывается запускаться
 [ -n "$SCHEMA" ] && set -- "$@" --json-schema "$SCHEMA" --output-format json
 
+# Снимаем ВСЕ переменные ANTIGRAVITY_*: если обёртку случайно запустят изнутри
+# работающего агента Antigravity, унаследованное окружение даёт рекурсию и взаимную
+# блокировку. Снимаем по префиксу, а не списком, чтобы новые переменные не всплыли.
+unset ${!ANTIGRAVITY_@}
+
 cd "$WORKDIR" || exit 1
 
 "$@" >"$OUT" 2>"$ERR" </dev/null &
 pid=$!
+# Если убьют саму обёртку, дочерний процесс модели не должен остаться сиротой.
+trap 'kill -TERM "$pid" 2>/dev/null; exit 143' TERM INT
 # Сторож на 30с длиннее собственного --print-timeout: даём agy выйти самому.
 { sleep $((TIMEOUT + 30)); : > "$TMARK"; kill -TERM "$pid" 2>/dev/null; sleep 5; kill -KILL "$pid" 2>/dev/null; } >/dev/null 2>&1 &
 watcher=$!

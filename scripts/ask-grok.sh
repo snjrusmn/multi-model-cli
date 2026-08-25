@@ -186,6 +186,8 @@ cd "$WORKDIR" || exit 1
 
 "$@" >"$OUT" 2>"$ERR" </dev/null &
 pid=$!
+# Если убьют саму обёртку, дочерний процесс модели не должен остаться сиротой.
+trap 'kill -TERM "$pid" 2>/dev/null; exit 143' TERM INT
 { sleep "$TIMEOUT"; : > "$TMARK"; kill -TERM "$pid" 2>/dev/null; sleep 5; kill -KILL "$pid" 2>/dev/null; } >/dev/null 2>&1 &
 watcher=$!
 wait "$pid"; rc=$?

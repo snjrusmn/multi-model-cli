@@ -146,6 +146,7 @@ export ASK_SECRETS_FILE="$HOME/путь/к/файлу"
 | [xai-org/grok-build-plugin-cc](https://github.com/xai-org/grok-build-plugin-cc) | xAI, официальный | то же для Grok Build, по умолчанию режим чтения |
 | [yuting0624/antigravity-for-claude-code](https://github.com/yuting0624/antigravity-for-claude-code) | сообщество | плагин для Antigravity, маршрутизация моделей и учёт расхода |
 | [anthropic-experimental/sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) | Anthropic | песочница с сетевым allowlist, macOS и Linux |
+| [umputun/ralphex](https://github.com/umputun/ralphex) | сообщество | автономный цикл по плану: свежая сессия на задачу, конвейер ревью из пяти агентов |
 
 Плагины удобнее по части UX: слэш-команды, перенос сессии, управление фоновыми задачами.
 Их поддерживают сами вендоры.
@@ -159,7 +160,10 @@ export ASK_SECRETS_FILE="$HOME/путь/к/файлу"
 - передача скиллов Claude Code внешней модели флагом `-s`.
 
 Что заимствовано: схема структурированного вывода ревью и промпт состязательного ревью
-из плагина OpenAI (Apache-2.0), диагностика окружения из плагина Antigravity.
+из плагина OpenAI (Apache-2.0), диагностика окружения из плагина Antigravity, а из
+ralphex (MIT) - цикл сходимости при ревью, правило проверять поиском утверждения вида
+«не используется», снятие переменных `ANTIGRAVITY_*` против рекурсии и проброс сигнала
+дочернему процессу.
 
 ## Лицензия
 

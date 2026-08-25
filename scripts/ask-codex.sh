@@ -187,6 +187,8 @@ cd "$WORKDIR" || exit 1
 # без логов, без кода возврата (openai/codex#20919). Ретраи и таймауты симптом усугубляют.
 "$@" >"$ERR" 2>&1 </dev/null &
 pid=$!
+# Если убьют саму обёртку, дочерний процесс модели не должен остаться сиротой.
+trap 'kill -TERM "$pid" 2>/dev/null; exit 143' TERM INT
 { sleep "$TIMEOUT"; : > "$TMARK"; kill -TERM "$pid" 2>/dev/null; sleep 5; kill -KILL "$pid" 2>/dev/null; } >/dev/null 2>&1 &
 watcher=$!
 wait "$pid"; rc=$?
