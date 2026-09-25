@@ -5,8 +5,11 @@
 #   ask-codex.sh [-e УСИЛИЕ] [-m МОДЕЛЬ] [-t СЕК] [-d DIR] [-f ПУТЬ]... [-s СКИЛЛ]... [-w] "промпт"
 #   echo "длинный промпт" | ask-codex.sh -e high -f ~/Documents/проект -
 #
-# -e  усилие: low / medium / high / xhigh. Не указан - берётся из
-#     ~/.codex/config.toml (там xhigh). Ставь low/medium на рутину, чтобы не ждать.
+# -e  усилие: low / medium / high / xhigh / max / ultra (у gpt-6-luna и gpt-5.6-luna
+#     потолок max). Не указан - берётся из ~/.codex/config.toml (там ultra).
+#     Ставь low/medium на рутину, чтобы не ждать.
+# -m  модель. Не указана - из ~/.codex/config.toml (там gpt-6-sol). Тяжёлое -
+#     gpt-6-astra, мелочь - gpt-6-luna. Список: ~/.codex/models_cache.json.
 # -f  файл или папка с материалами, можно несколько.
 # -s  наш скилл как инструкция: имя из ~/.claude/skills или путь к SKILL.md.
 #     Можно несколько. Текст подмешивается в начало промпта, папка скилла
@@ -168,7 +171,7 @@ set -- codex exec \
   -C "$WORKDIR" \
   -o "$OUT"
 # Усилие передаём ТОЛЬКО если попросили явно. Иначе действует model_reasoning_effort
-# из ~/.codex/config.toml - там осознанно выставлен xhigh, и молча понижать его нельзя.
+# из ~/.codex/config.toml - там осознанно выставлен ultra, и молча понижать его нельзя.
 [ -n "$EFFORT" ] && set -- "$@" -c model_reasoning_effort="\"$EFFORT\""
 if [ "$WRITE" -eq 1 ]; then
   # Папки материалов на запись НЕ открываем: у Grok и Gemini их нет в writable,

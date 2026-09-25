@@ -5,8 +5,9 @@
 #   ask-grok.sh [-e УСИЛИЕ] [-m МОДЕЛЬ] [-t СЕК] [-d DIR] [-f ПУТЬ]... [-s СКИЛЛ]... [-w] "промпт"
 #   echo "длинный промпт" | ask-grok.sh -e high -f ~/Documents/проект -
 #
-# -e  усилие: none/minimal/low/medium/high/xhigh/max. Не указан - дефолт модели.
-# -m  модель, по умолчанию grok-4.6 (есть ещё grok-4.5). Список: grok models.
+# -e  усилие: low/medium/high/xhigh (по докам /effort). Не указан - дефолт модели.
+# -m  модель. Не указана - дефолт CLI, сейчас grok-4.7. Есть grok-4.7-build-fast,
+#     grok-4.6, grok-4.5. Список: grok models.
 # -f  файл или папка с материалами, можно несколько. Копировать никуда не надо:
 #     Grok читает ~/Documents и сетевые тома напрямую.
 # -s  наш скилл как инструкция: имя из ~/.claude/skills или путь к SKILL.md.

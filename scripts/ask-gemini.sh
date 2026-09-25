@@ -6,7 +6,7 @@
 #   echo "длинный промпт" | ask-gemini.sh -f ~/Documents/проект -
 #
 # -e  усилие: low / medium / high. Не указан - его несёт суффикс модели.
-# -m  модель, по умолчанию gemini-3.7-flash-high. Под чистый reasoning -
+# -m  модель, по умолчанию gemini-3.8-flash-high. Под чистый reasoning -
 #     gemini-3.1-pro-high. Есть также claude-sonnet-4-6, claude-opus-4-6-thinking,
 #     gpt-oss-120b-medium - у них ОТДЕЛЬНАЯ квота от Gemini. Список: agy models.
 # -f  файл или папка с материалами, можно несколько. Копировать никуда не надо:
@@ -45,11 +45,11 @@ export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 PROFILE="$(cd "$(dirname "$0")" && pwd)/agy-sandbox.sb"
 
 EFFORT=""
-# Дефолт задан явно: agy свою модель нигде не раскрывает. Выбран Flash 3.7, а не Pro 3.1,
-# по независимым замерам Artificial Analysis: индекс 56 против 48, вдвое быстрее первый
-# токен (12с против 29с), на 60% дешевле, контекст у обоих 1M. Pro выигрывает лишь на
+# Дефолт задан явно: agy свою модель нигде не раскрывает. Выбран свежий Flash (3.8 с
+# 25.09.2026), а не Pro 3.1: ещё Flash 3.7 обходил Pro по замерам Artificial Analysis
+# (индекс 56 против 48, первый токен 12с против 29с, на 60% дешевле, контекст у обоих 1M). Pro выигрывает лишь на
 # отдельных reasoning-бенчмарках - под них переключай: -m gemini-3.1-pro-high.
-MODEL="gemini-3.7-flash-high"
+MODEL="gemini-3.8-flash-high"
 TIMEOUT=600
 SCHEMA=""
 WORKDIR=""
