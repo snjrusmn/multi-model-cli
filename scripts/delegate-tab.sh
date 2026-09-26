@@ -3,13 +3,16 @@
 # чтобы владелец видел работу и мог вмешаться. Скрытые ask-*.sh остаются для случаев,
 # когда agterm нет (сервер, cron) или нужен короткий ответ без показа.
 #
-#   delegate-tab.sh -c codex|gemini|grok [-m МОДЕЛЬ] [-e УСИЛИЕ] [-w DIR] [-n ИМЯ]
+#   delegate-tab.sh -c codex|gemini|grok [-m МОДЕЛЬ] [-e УСИЛИЕ] [-w DIR | -k DIR] [-n ИМЯ]
 #                   [-p auto|split|tab] [-W СЕК] ЗАДАНИЕ.md
 #
 # -c  кому: codex (Codex CLI), gemini (Antigravity agy, любая его модель), grok.
 # -m  модель; по умолчанию дефолт инструмента (gemini: gemini-3.8-flash-high).
 # -e  усилие (codex, grok). У gemini усилие в суффиксе имени модели.
 # -w  разрешить правки ТОЛЬКО в этом каталоге. Без -w модель пишет лишь в папку прогона.
+# -k  безопасная правка: каталог копируется в RUN/work, модель правит только копию,
+#     оригинал физически недоступен для записи. Что изменилось: diff -ru DIR RUN/work;
+#     переносит правки в оригинал вызывающий, после проверки. Предпочтительнее -w.
 # -n  подпись вкладки.
 # -p  куда: split - правая панель вызывающей сессии, tab - новая вкладка рядом,
 #     auto (по умолчанию) - правая панель, если она свободна, иначе новая вкладка.
@@ -18,12 +21,12 @@
 # Итог модель кладёт в RUN/result.md. Готовность = файл появился и не пустой.
 set -uo pipefail
 
-TOOL=""; MODEL=""; EFFORT=""; WDIR=""; NAME=""; PLACE="auto"; WAIT=0
-while getopts "c:m:e:w:n:p:W:h" o; do
+TOOL=""; MODEL=""; EFFORT=""; WDIR=""; KDIR=""; NAME=""; PLACE="auto"; WAIT=0
+while getopts "c:m:e:w:k:n:p:W:h" o; do
   case "$o" in
     c) TOOL="$OPTARG" ;; m) MODEL="$OPTARG" ;; e) EFFORT="$OPTARG" ;;
-    w) WDIR="$OPTARG" ;; n) NAME="$OPTARG" ;; p) PLACE="$OPTARG" ;; W) WAIT="$OPTARG" ;;
-    h) sed -n "2,19p" "$0"; exit 0 ;; *) exit 1 ;;
+    w) WDIR="$OPTARG" ;; k) KDIR="$OPTARG" ;; n) NAME="$OPTARG" ;; p) PLACE="$OPTARG" ;; W) WAIT="$OPTARG" ;;
+    h) sed -n "2,22p" "$0"; exit 0 ;; *) exit 1 ;;
   esac
 done
 shift $((OPTIND - 1))
@@ -31,7 +34,9 @@ BRIEF="${1:-}"
 [ -n "$TOOL" ] && [ -f "$BRIEF" ] || { echo "нужно: -c ИНСТРУМЕНТ и файл задания" >&2; exit 1; }
 [ "${AGTERM_ENABLED:-}" = "1" ] || { echo "не внутри agterm - используй ask-$TOOL.sh" >&2; exit 2; }
 command -v agtermctl >/dev/null || { echo "нет agtermctl" >&2; exit 2; }
+[ -n "$WDIR" ] && [ -n "$KDIR" ] && { echo "-w и -k вместе нельзя" >&2; exit 1; }
 [ -n "$WDIR" ] && { WDIR="$(cd "$WDIR" && pwd)" || exit 1; }
+[ -n "$KDIR" ] && { KDIR="$(cd "$KDIR" && pwd)" || exit 1; }
 
 BRIEF="$(cd "$(dirname "$BRIEF")" && pwd)/$(basename "$BRIEF")"
 # Корень прогонов постоянный: Codex и agy спрашивают доверие к каждой НОВОЙ папке, а эту
@@ -40,9 +45,33 @@ BRIEF="$(cd "$(dirname "$BRIEF")" && pwd)/$(basename "$BRIEF")"
 ROOT="${TMPDIR:-/tmp}/delegate-runs"; mkdir -p "$ROOT"
 RUN="$(mktemp -d "$ROOT/$(date +%m%d-%H%M%S).XXXX")"
 RESULT="$RUN/result.md"
+if [ -n "$KDIR" ]; then
+  # копия, а не оригинал: папка прогона разрешена на запись всем трём моделям
+  SIZE_MB=$(du -sm "$KDIR" | cut -f1)
+  [ "$SIZE_MB" -le 500 ] || { echo "каталог $KDIR — ${SIZE_MB} МБ, больше 500: дай папку поуже" >&2; exit 1; }
+  rsync -a --exclude node_modules --exclude .venv "$KDIR/" "$RUN/work/" || exit 1
+  echo "$KDIR" > "$RUN/source.txt"
+  # канонический путь (/private/var/…): по нему Codex сверяет доверие к папке
+  WDIR="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$RUN/work")"
+fi
+# Окно доверия Codex читает только свой config.toml (параметр -c не помогает): новую копию
+# вносим в доверенные, а записи об уже удалённых копиях вычищаем, чтобы файл не рос.
+if [ -n "$KDIR" ] && [ "$TOOL" = codex ]; then
+  python3 - "$WDIR" "${CODEX_HOME:-$HOME/.codex}/config.toml" <<'PY'
+import os, re, sys
+work, cfg = sys.argv[1], sys.argv[2]
+s = open(cfg).read() if os.path.exists(cfg) else ""
+pat = re.compile(r'\[projects\."(/[^"]*/delegate-runs/[^"]+/work)"\]\ntrust_level = "trusted"\n\n?')
+s = pat.sub(lambda m: m.group(0) if os.path.isdir(m.group(1)) else "", s)
+if f'[projects."{work}"]' not in s:
+    s = s.rstrip("\n") + f'\n\n[projects."{work}"]\ntrust_level = "trusted"\n'
+open(cfg, "w").write(s)
+PY
+fi
 CWD="${WDIR:-$ROOT}"
 PROMPT="Прочитай файл $BRIEF и выполни задание оттуда полностью. Итоговый ответ целиком запиши в файл $RESULT командой в терминале, проверь, что файл существует и не пустой, и только после этого напиши ГОТОВО. Написать ГОТОВО без файла - ошибка."
 [ -z "$WDIR" ] && PROMPT="$PROMPT Файлы владельца не меняй."
+[ -n "$KDIR" ] && PROMPT="$PROMPT Рабочая папка — $RUN/work (копия папки $KDIR): все правки делай только в ней, пути из задания, указывающие в $KDIR, понимай как соответствующие пути внутри $RUN/work."
 
 # Текст задания и запуск кладём в файлы прогона: так кириллица и кавычки не ломаются
 # при передаче через agterm, а бинарники зовём по полному пути (у GUI-сессий урезан PATH).
@@ -111,6 +140,7 @@ else
 fi
 echo "запущено: $TOOL → $WHERE"
 echo "итог: $RESULT"
+[ -n "$KDIR" ] && echo "копия: $RUN/work  (что изменилось: diff -ru \"$KDIR\" \"$RUN/work\")"
 
 [ "$WAIT" -gt 0 ] 2>/dev/null || exit 0
 for ((i=0; i<WAIT; i+=5)); do
