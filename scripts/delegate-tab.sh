@@ -129,6 +129,25 @@ walk(t)' "$SELF"
 [ "$PLACE" = "auto" ] && { [ "$(split_state)" = "busy" ] && PLACE="tab" || PLACE="split"; }
 
 if [ "$PLACE" = "split" ]; then
+  # Интерактивная модель после ГОТОВО остаётся открытой и держит панель. Прошлого агента
+  # делегирования закрываем; чужую программу не трогаем — иначе команда уйдёт ей в ввод.
+  if [ "$(split_state)" = "busy" ]; then
+    PREV="$(agtermctl tree --json | python3 -c '
+import json,re,sys
+t=json.load(sys.stdin); me=sys.argv[1]
+def walk(o):
+    if isinstance(o,dict):
+        if o.get("id")==me:
+            m=re.search(r"delegate-runs/+([0-9-]+\.[A-Za-z0-9]+)", " ".join(o.get("splitForeground") or []))
+            print(m.group(1) if m else ""); sys.exit()
+        for v in o.values(): walk(v)
+    elif isinstance(o,list):
+        for v in o: walk(v)
+walk(t)' "$SELF")"
+    [ -n "$PREV" ] || { echo "правая панель занята не агентом делегирования — не трогаю; освободи её или -p tab" >&2; exit 3; }
+    pkill -f "delegate-runs/+$PREV" ; for _ in 1 2 3 4 5 6; do [ "$(split_state)" = "busy" ] || break; sleep 1; done
+    [ "$(split_state)" = "busy" ] && { echo "прошлый агент ($PREV) не закрылся" >&2; exit 3; }
+  fi
   [ "$(split_state)" = "none" ] && agtermctl session split on --target "$SELF" >/dev/null
   agtermctl session type --target "$SELF" --pane right "clear; $CMD
 " >/dev/null
